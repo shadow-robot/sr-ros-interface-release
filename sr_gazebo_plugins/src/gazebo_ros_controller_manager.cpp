@@ -57,7 +57,7 @@ namespace gazebo
 {
 
 GazeboRosControllerManager::GazeboRosControllerManager()
-  : state_(NULL), cm_(NULL), fake_state_(NULL), rosnode_(NULL)
+  : state_(NULL), cm_(NULL), fake_state_(NULL), rosnode_(NULL), stop_(false)
 {
 }
 
@@ -70,8 +70,10 @@ GazeboRosControllerManager::~GazeboRosControllerManager()
   controller_manager_queue_.disable();
   controller_manager_callback_queue_thread_.join();
 #endif
+  stop_ = true;
   ros_spinner_thread_.join();
-
+  ROS_DEBUG("spinner terminated");
+  self_test_.reset();
   delete cm_;
   delete rosnode_;
   delete state_;
@@ -203,7 +205,6 @@ void GazeboRosControllerManager::UpdateChild()
   common::Time gz_time_now = parent_model_->GetWorld()->GetSimTime();
   ros::Time sim_time_ros(gz_time_now.sec, gz_time_now.nsec);
   ros::Duration sim_period = sim_time_ros - last_update_sim_time_ros_;
-
   if (getenv("CHECK_SPEEDUP"))
   {
     double wall_elapsed = world->GetRealTime().Double() - wall_start_;
@@ -259,23 +260,35 @@ void GazeboRosControllerManager::UpdateChild()
     // at this moment only commanded_effort_ in joint 2 is up to date
     double effort = fst->commanded_effort_;
 
-    if (joint_name[3] == '2' && (joint_name[0] == 'F' ||
-                                 joint_name[0] == 'M' ||
-                                 joint_name[0] == 'R' ||
-                                 joint_name[0] == 'L'))
+    if(joint_name.size() > 3)
     {
-      joint_name[3] = '1';
-      JointState *fst1 = fake_state_->getJointState(joint_name);
-      effort = fst1->commanded_effort_;
+      if (joint_name[joint_name.size() - 1] == '2' && (joint_name[joint_name.size() -4] == 'F' ||
+						       joint_name[joint_name.size() -4] == 'M' ||
+						       joint_name[joint_name.size() -4] == 'R' ||
+						       joint_name[joint_name.size() -4] == 'L'))
+      {
+	joint_name[joint_name.size() - 1] = '1';
+
+	JointState *fst1 = fake_state_->getJointState(joint_name);
+	effort = fst1->commanded_effort_;
+      }
     }
 
     double damping_coef = 0;
     if (fst->joint_->dynamics)
       damping_coef = fst->joint_->dynamics->damping;
-
+    
     double current_velocity = joints_[i]->GetVelocity(0);
-    double damping_force = damping_coef * current_velocity;
-    double effort_command = effort - damping_force;
+    // using implicit spring damper from gazebo instead of explicit.
+    //double damping_force = damping_coef * current_velocity;
+    //double effort_command = effort - damping_force;
+    double effort_command = effort;
+    //enforce limits (are these limites enforced in gazebo ?)
+    //if (fst->joint_->limits)
+    //{
+      //double effort_limit= fst->joint_->limits->effort;
+      //effort_command=std::min(std::max(effort_command, -effort_limit), effort_limit);
+    //}
     joints_[i]->SetForce(0, effort_command);
   }
   last_write_sim_time_ros_ = sim_time_ros;
@@ -371,7 +384,7 @@ void GazeboRosControllerManager::ControllerManagerROSThread()
 {
   ROS_INFO_STREAM("Callback thread id=" << boost::this_thread::get_id());
 
-  while (rosnode_->ok())
+  while (rosnode_->ok() && !stop_)
   {
     self_test_->checkTest();
     usleep(1000);
