@@ -1,0 +1,12 @@
+Source: ros-indigo-sr-hand
+Section: misc
+Priority: extra
+Maintainer: Shadow Robot's software team <software@shadowrobot.com>
+Build-Depends: debhelper (>= 9.0.0), gazebo2, libgtest-dev, ros-indigo-catkin, ros-indigo-control-msgs, ros-indigo-controller-manager-msgs, ros-indigo-diagnostic-msgs, ros-indigo-dynamic-reconfigure, ros-indigo-gazebo-msgs, ros-indigo-roscpp, ros-indigo-roslib, ros-indigo-rospy, ros-indigo-rostest, ros-indigo-self-test, ros-indigo-sensor-msgs, ros-indigo-sr-robot-msgs, ros-indigo-sr-utilities, ros-indigo-std-msgs, ros-indigo-std-srvs, ros-indigo-urdf
+Homepage: http://www.shadowrobot.com
+Standards-Version: 3.9.2
+
+Package: ros-indigo-sr-hand
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, gazebo2, ros-indigo-control-msgs, ros-indigo-controller-manager-msgs, ros-indigo-diagnostic-msgs, ros-indigo-dynamic-reconfigure, ros-indigo-gazebo-msgs, ros-indigo-gazebo-ros, ros-indigo-robot-state-publisher, ros-indigo-roscpp, ros-indigo-roslib, ros-indigo-rospy, ros-indigo-self-test, ros-indigo-sensor-msgs, ros-indigo-sr-robot-msgs, ros-indigo-sr-utilities, ros-indigo-std-msgs, ros-indigo-std-srvs, ros-indigo-urdf
+Description: This is a ROS interface to the Shadow Robot's robotic hand. It contains both an interface to the real hand (communicating via a CAN interface) and a simulated version of the hand. It also contains an interface to Shadow Robot's muscle arm.
