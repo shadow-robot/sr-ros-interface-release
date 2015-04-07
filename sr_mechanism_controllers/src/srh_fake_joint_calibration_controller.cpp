@@ -31,69 +31,67 @@
 #include <string>
 #include <std_srvs/Empty.h>
 
-PLUGINLIB_EXPORT_CLASS( controller::SrhFakeJointCalibrationController, pr2_controller_interface::Controller)
+PLUGINLIB_EXPORT_CLASS( controller::SrhFakeJointCalibrationController, controller_interface::ControllerBase)
 
 using namespace std;
 
 namespace controller {
 
   SrhFakeJointCalibrationController::SrhFakeJointCalibrationController()
-    : robot_(NULL), last_publish_time_(0), state_(IS_INITIALIZED),
-      actuator_(NULL), joint_(NULL)
+    : robot_(NULL),
+      last_publish_time_(0),
+      calibration_state_(IS_INITIALIZED),
+      actuator_(NULL),
+      joint_(NULL)
   {
   }
 
-  SrhFakeJointCalibrationController::~SrhFakeJointCalibrationController()
+  bool SrhFakeJointCalibrationController::init(ros_ethercat_model::RobotState *robot, ros::NodeHandle &n)
   {
-  }
-
-  bool SrhFakeJointCalibrationController::init(pr2_mechanism_model::RobotState *robot, ros::NodeHandle &n)
-  {
+    ROS_ASSERT(robot);
     robot_ = robot;
     node_ = n;
-    // Joint
 
-    std::string joint_name;
-    if (!node_.getParam("joint", joint_name))
+    // robot_id robot_id_, joint_prefix_, ns_
+    if (node_.getParam("robot_id", robot_id_)
+        && (!robot_id_.empty()))
+    {
+      joint_prefix_ = robot_id_ + "_";
+      ns_ = robot_id_ + "/";
+    }
+
+
+    // Joint
+    if (!node_.getParam("joint", joint_name_))
     {
       ROS_ERROR("No joint given (namespace: %s)", node_.getNamespace().c_str());
       return false;
     }
-    if (!(joint_ = robot->getJointState(joint_name)))
+    if (!(joint_ = robot->getJointState(joint_prefix_ + joint_name_)))
     {
       ROS_ERROR("Could not find joint %s (namespace: %s)",
-                joint_name.c_str(), node_.getNamespace().c_str());
+                (joint_prefix_ + joint_name_).c_str(), node_.getNamespace().c_str());
       return false;
     }
-    joint_name_ = joint_name;
 
     // Actuator
-    std::string actuator_name;
-    if (!node_.getParam("actuator", actuator_name))
+    if (!node_.getParam("actuator", actuator_name_))
     {
       ROS_ERROR("No actuator given (namespace: %s)", node_.getNamespace().c_str());
       return false;
     }
-    if (!(actuator_ = robot->model_->getActuator(actuator_name)))
+    if (!(actuator_ = robot->getActuator(joint_prefix_ + actuator_name_)))
     {
       ROS_ERROR("Could not find actuator %s (namespace: %s)",
-                actuator_name.c_str(), node_.getNamespace().c_str());
+                (joint_prefix_ + actuator_name_).c_str(), node_.getNamespace().c_str());
       return false;
     }
-    actuator_name_ = actuator_name;
 
     // Transmission
-    std::string transmission_name;
+    string transmission_name;
     if (!node_.getParam("transmission", transmission_name))
     {
       ROS_ERROR("No transmission given (namespace: %s)", node_.getNamespace().c_str());
-      return false;
-    }
-    transmission_ = robot->model_->getTransmission(transmission_name);
-    if (!transmission_)
-    {
-      ROS_ERROR("Could not find transmission %s (namespace: %s)",
-                transmission_name.c_str(), node_.getNamespace().c_str());
       return false;
     }
 
@@ -105,20 +103,20 @@ namespace controller {
   }
 
 
-  void SrhFakeJointCalibrationController::update()
+  void SrhFakeJointCalibrationController::update(const ros::Time& time, const ros::Duration& period)
   {
-    assert(joint_);
-    assert(actuator_);
+    ROS_ASSERT(joint_);
+    ROS_ASSERT(actuator_);
 
-    switch(state_)
+    switch(calibration_state_)
     {
     case IS_INITIALIZED:
-      state_ = BEGINNING;
+      calibration_state_ = BEGINNING;
       break;
     case BEGINNING:
       initialize_pids();
       joint_->calibrated_ = true;
-      state_ = CALIBRATED;
+      calibration_state_ = CALIBRATED;
       //We add the following line to delay for some time the first publish and allow the correct initialization of the subscribers in calibrate.py
       last_publish_time_ = robot_->getTime();
       break;
@@ -127,7 +125,7 @@ namespace controller {
       {
         if (last_publish_time_ + ros::Duration(0.5) < robot_->getTime())
         {
-          assert(pub_calibrated_);
+          ROS_ASSERT(pub_calibrated_);
           if (pub_calibrated_->trylock())
           {
             last_publish_time_ = robot_->getTime();
@@ -142,7 +140,7 @@ namespace controller {
   void SrhFakeJointCalibrationController::initialize_pids()
   {
     ///Reset the motor to make sure we have the proper 0 + correct PID settings
-    std::string service_name = "realtime_loop/reset_motor_" + boost::to_upper_copy(actuator_name_);
+    string service_name = "realtime_loop/" + ns_ + "reset_motor_" + boost::to_upper_copy(actuator_name_);
     if( ros::service::waitForService (service_name, ros::Duration(2.0)) )
     {
       std_srvs::Empty srv;

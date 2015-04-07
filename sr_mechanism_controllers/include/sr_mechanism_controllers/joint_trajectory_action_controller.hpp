@@ -4,7 +4,7 @@
  * @date   Fri Mar  4 12:57:46 2011
  *
  * @brief  Implement an actionlib server to execute a
- * pr2_controllers_msgs::JointTrajectoryAction. Follows the
+ * control_msgs::JointTrajectoryAction. Follows the
  * given trajectory with the arm.
  *
  *
@@ -27,7 +27,6 @@ namespace shadowrobot
     typedef std::map<std::string, ros::Publisher> JointPubMap;
   public:
     JointTrajectoryActionController();
-    ~JointTrajectoryActionController();
 
   private:
     ros::NodeHandle nh;

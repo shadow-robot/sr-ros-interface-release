@@ -29,14 +29,15 @@
 
 #include <ros/node_handle.h>
 
-#include <pr2_controller_interface/controller.h>
+#include <controller_interface/controller.h>
+#include <ros_ethercat_model/robot_state.hpp>
 #include <control_toolbox/pid.h>
 #include <boost/scoped_ptr.hpp>
 #include <boost/thread/condition.hpp>
 #include <realtime_tools/realtime_publisher.h>
 #include <std_msgs/Float64.h>
 #include <std_srvs/Empty.h>
-#include <pr2_controllers_msgs/JointControllerState.h>
+#include <control_msgs/JointControllerState.h>
 
 #include <utility>
 
@@ -50,47 +51,39 @@
 namespace controller
 {
 
-  class SrController : public pr2_controller_interface::Controller
+  class SrController : public controller_interface::Controller<ros_ethercat_model::RobotState>
   {
   public:
 
     SrController();
     virtual ~SrController();
 
-    virtual bool init(pr2_mechanism_model::RobotState *robot, ros::NodeHandle &n);
+    virtual bool init(ros_ethercat_model::RobotState *robot, ros::NodeHandle &n) = 0;
 
-    /*!
-     * \brief Give set position of the joint for next update: revolute (angle) and prismatic (position)
-     *
-     * \param cmd the received angle
-     */
-    void setCommand(double cmd);
-    virtual void setCommandCB(const std_msgs::Float64ConstPtr& msg);
-
-    /*!
-     * \brief Get latest position command to the joint: revolute (angle) and prismatic (position).
-     */
-    void getCommand(double & cmd);
-
-    virtual void starting();
+    virtual void starting(const ros::Time& time) {};
 
     /*!
      * \brief Issues commands to the joint. Should be called at regular intervals
      */
-    virtual void update();
+    virtual void update(const ros::Time& time, const ros::Duration& period) = 0;
 
-    virtual bool resetGains(std_srvs::Empty::Request& req, std_srvs::Empty::Response& resp);
+    virtual bool resetGains(std_srvs::Empty::Request& req, std_srvs::Empty::Response& resp) { return true; };
 
-    virtual void getGains(double &p, double &i, double &d, double &i_max, double &i_min);
+    virtual void getGains(double &p, double &i, double &d, double &i_max, double &i_min) {};
 
     std::string getJointName();
-    pr2_mechanism_model::JointState *joint_state_;        /**< Joint we're controlling. */
-    pr2_mechanism_model::JointState *joint_state_2;        /**< 2ndJoint we're controlling if joint 0. */
-    bool has_j2;         /**< true if this is a joint 0. */
-    ros::Duration dt_;
-    double command_;                            /**< Last commanded position. */
+    ros_ethercat_model::JointState *joint_state_;   /**< Joint we're controlling. */
+    ros_ethercat_model::JointState *joint_state_2;  /**< 2ndJoint we're controlling if joint 0. */
+    bool has_j2;                                    /**< true if this is a joint 0. */
+    double command_;                                /**< Last commanded position. */
 
   protected:
+    // true if this is joint 0
+    bool is_joint_0();
+
+    // set joint_state_ and joint_state_2
+    void get_joints_states_1_2();
+
     ///call this function at the end of the init function in the inheriting classes.
     void after_init();
 
@@ -102,7 +95,7 @@ namespace controller
      *
      * @return the clamped command
      */
-    double clamp_command( double cmd );
+    virtual double clamp_command( double cmd );
 
     /**
      * Reads the min and max from the robot model for
@@ -118,17 +111,17 @@ namespace controller
 
     int loop_count_;
     bool initialized_;
-    pr2_mechanism_model::RobotState *robot_;              /**< Pointer to robot structure. */
-    ros::Time last_time_;                          /**< Last time stamp of update. */
+    ros_ethercat_model::RobotState *robot_;              /**< Pointer to robot structure. */
 
     ros::NodeHandle node_, n_tilde_;
+    std::string joint_name_;
 
-    boost::scoped_ptr<
-      realtime_tools::RealtimePublisher<
-        pr2_controllers_msgs::JointControllerState> > controller_state_publisher_ ;
+    boost::scoped_ptr<realtime_tools::RealtimePublisher<control_msgs::JointControllerState> > controller_state_publisher_ ;
 
-    boost::shared_ptr<sr_friction_compensation::SrFrictionCompensator> friction_compensator;
+    boost::scoped_ptr<sr_friction_compensation::SrFrictionCompensator> friction_compensator;
 
+    ///set the command from a topic
+    virtual void setCommandCB(const std_msgs::Float64ConstPtr& msg) {}
     ros::Subscriber sub_command_;
     ros::ServiceServer serve_set_gains_;
     ros::ServiceServer serve_reset_gains_;

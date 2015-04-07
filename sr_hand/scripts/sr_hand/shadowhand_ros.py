@@ -22,7 +22,7 @@ import rospy
 import rospkg
 import threading
 import rosgraph.masterapi
-import pr2_controllers_msgs.msg
+import control_msgs.msg
 from sr_robot_msgs.msg import sendupdate, joint, joints_data, JointControllerState
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Float64
@@ -96,7 +96,7 @@ class ShadowHand_ROS():
         self.eth_subscribers = {}
         #rospy.init_node('python_hand_library')
         self.sendupdate_lock = threading.Lock()
-        
+
         self.joint_states_lock = threading.Lock()
 
         #contains the ending for the topic depending on which controllers are loaded
@@ -114,26 +114,26 @@ class ShadowHand_ROS():
         self.grasp_parser.parse_tree(self.rootPath+"/scripts/sr_hand/grasps.xml")
 
         self.grasp_interpoler = 0
-        self.pub = rospy.Publisher('srh/sendupdate',sendupdate, latch=True)
-        self.pub_arm = rospy.Publisher('sr_arm/sendupdate',sendupdate, latch=True)
+        self.pub = rospy.Publisher('srh/sendupdate', sendupdate, queue_size=1, latch=True)
+        self.pub_arm = rospy.Publisher('sr_arm/sendupdate', sendupdate, queue_size=1, latch=True)
 
         self.sub_arm = rospy.Subscriber('sr_arm/shadowhand_data', joints_data,self.callback_arm)
         self.sub = rospy.Subscriber('srh/shadowhand_data', joints_data ,self.callback)
 
         self.hand_type = self.check_hand_type()
-        
+
         self.hand_velocity = {}
         self.hand_effort = {}
-        
+
         if (self.hand_type == "etherCAT") or (self.hand_type == "gazebo"):
             self.joint_states_listener = rospy.Subscriber("joint_states", JointState, self.joint_states_callback)
             # Initialize the command publishers here, to avoid the delay caused when initializing them in the sendupdate
-            for joint in self.allJoints:
-                if not self.eth_publishers.has_key(joint.name):
-                    topic = "sh_"+ joint.name.lower() + self.topic_ending+"/command"
-                    self.eth_publishers[joint.name] = rospy.Publisher(topic, Float64, latch=True)
+            for jnt in self.allJoints:
+                if not self.eth_publishers.has_key(jnt.name):
+                    topic = "sh_"+ jnt.name.lower() + self.topic_ending+"/command"
+                    self.eth_publishers[jnt.name] = rospy.Publisher(topic, Float64, queue_size=1, latch=True)
         self.tactile_receiver = TactileReceiver()
-        
+
         threading.Thread(None, rospy.spin)
 
     def create_grasp_interpoler(self, current_step, next_step):
@@ -180,9 +180,9 @@ class ShadowHand_ROS():
         self.lastMsg = data;
         if self.isFirstMessage :
             self.init_actual_joints()
-            for joint in self.lastMsg.joints_list :
-                self.dict_pos[joint.joint_name]=joint.joint_position
-                self.dict_tar[joint.joint_name]=joint.joint_target
+            for jnt in self.lastMsg.joints_list :
+                self.dict_pos[jnt.joint_name]=jnt.joint_position
+                self.dict_tar[jnt.joint_name]=jnt.joint_target
             self.isFirstMessage = False
             self.isReady = True
 
@@ -194,9 +194,9 @@ class ShadowHand_ROS():
         """
         self.lastArmMsg = data
         if self.isFirstMessageArm :
-            for joint in self.lastArmMsg.joints_list :
-                self.dict_arm_pos[joint.joint_name]=joint.joint_position
-                self.dict_arm_tar[joint.joint_name]=joint.joint_target
+            for jnt in self.lastArmMsg.joints_list :
+                self.dict_arm_pos[jnt.joint_name]=jnt.joint_position
+                self.dict_arm_tar[jnt.joint_name]=jnt.joint_target
 
     def init_actual_joints(self):
         """
@@ -255,7 +255,7 @@ class ShadowHand_ROS():
         Sends new targets to the hand from a dictionnary
         """
         self.sendupdate_lock.acquire()
-        
+
         if (self.hand_type == "etherCAT") or (self.hand_type == "gazebo"):
             for join in dicti.keys():
 
@@ -271,7 +271,7 @@ class ShadowHand_ROS():
             for join in dicti.keys():
                 message.append(joint(joint_name=join, joint_target=dicti[join]))
             self.pub.publish(sendupdate(len(message), message))
-            
+
         self.sendupdate_lock.release()
 
     def sendupdate(self, jointName, angle=0):
@@ -320,12 +320,12 @@ class ShadowHand_ROS():
         @param jointName: Name of the joint to read the value
         @return: 'NaN' if the value is not correct, the actual position of the joint else
         """
-        for joint in self.lastMsg.joints_list:
-            if joint.joint_name == jointName:
-                return float(joint.joint_position)
-        for joint in self.lastArmMsg.joints_list:
-            if joint.joint_name == jointName:
-                return float(joint.joint_position)
+        for jnt in self.lastMsg.joints_list:
+            if jnt.joint_name == jointName:
+                return float(jnt.joint_position)
+        for jnt in self.lastArmMsg.joints_list:
+            if jnt.joint_name == jointName:
+                return float(jnt.joint_position)
         return 'NaN'
 
     def has_arm(self):
@@ -380,8 +380,8 @@ class ShadowHand_ROS():
         """
         if not self.isReady:
             return
-        for joint in self.lastMsg.joints_list:
-            self.dict_pos[joint.joint_name] = joint.joint_position
+        for jnt in self.lastMsg.joints_list:
+            self.dict_pos[jnt.joint_name] = jnt.joint_position
         return self.dict_pos
 
     def read_all_current_targets(self):
@@ -389,8 +389,8 @@ class ShadowHand_ROS():
         @return: dictionnary mapping joint names to current targets
         Read all the targets in the lastMsg
         """
-        for joint in self.lastMsg.joints_list:
-            self.dict_tar[joint.joint_name] = joint.joint_target
+        for jnt in self.lastMsg.joints_list:
+            self.dict_tar[jnt.joint_name] = jnt.joint_target
         return self.dict_tar
 
     def read_all_current_velocities(self):
@@ -399,21 +399,21 @@ class ShadowHand_ROS():
         """
         with self.joint_states_lock:
             return self.hand_velocity
-    
+
     def read_all_current_efforts(self):
         """
         @return: dictionary mapping joint names to current efforts
         """
         with self.joint_states_lock:
             return self.hand_effort
-    
+
     def read_all_current_arm_positions(self):
         """
         @return: dictionnary mapping joint names to actual positions
         Read all the positions in the lastMsg
         """
-        for joint in self.lastArmMsg.joints_list:
-            self.dict_arm_pos[joint.joint_name] = joint.joint_position
+        for jnt in self.lastArmMsg.joints_list:
+            self.dict_arm_pos[jnt.joint_name] = jnt.joint_position
         return self.dict_arm_pos
 
     def read_all_current_arm_targets(self):
@@ -421,8 +421,8 @@ class ShadowHand_ROS():
         @return: dictionnary mapping joint names to actual targets
         Read all the targets in the lastMsg
         """
-        for joint in self.lastArmMsg.joints_list:
-            self.dict_arm_tar[joint.joint_name] = joint.joint_target
+        for jnt in self.lastArmMsg.joints_list:
+            self.dict_arm_tar[jnt.joint_name] = jnt.joint_target
         return self.dict_arm_tar
 
     def resend_targets(self):
@@ -485,7 +485,7 @@ class ShadowHand_ROS():
             topic = "sh_"+ joint_all.name.lower() + self.topic_ending + "/state"
             success = True
             try:
-                rospy.wait_for_message(topic, pr2_controllers_msgs.msg.JointControllerState, timeout = 0.2)
+                rospy.wait_for_message(topic, control_msgs.msg.JointControllerState, timeout = 0.2)
             except:
                 try:
                     self.topic_ending = "_mixed_position_velocity_controller"
@@ -498,7 +498,7 @@ class ShadowHand_ROS():
                 if self.topic_ending == "_mixed_position_velocity_controller":
                     self.eth_subscribers[joint_all.name] = rospy.Subscriber(topic, JointControllerState, self.callback_ethercat_states, joint_all.name)
                 else:
-                    self.eth_subscribers[joint_all.name] = rospy.Subscriber(topic, pr2_controllers_msgs.msg.JointControllerState, self.callback_ethercat_states, joint_all.name)
+                    self.eth_subscribers[joint_all.name] = rospy.Subscriber(topic, control_msgs.msg.JointControllerState, self.callback_ethercat_states, joint_all.name)
 
         if len(self.eth_subscribers) > 0:
             return True
@@ -511,13 +511,13 @@ class ShadowHand_ROS():
         It will store the received joint velocity and effort information in two dictionaries
         Velocity will be converted to degrees/s.
         Effort units are kept as they are (currently ADC units, as no calibration is performed on the strain gauges)
-        
+
         @param joint_state: the message containing the joints data.
         """
-        with self.joint_states_lock:  
+        with self.joint_states_lock:
             self.hand_velocity = {n:math.degrees(v) for n,v in zip(joint_state.name, joint_state.velocity)}
             self.hand_effort = {n:e for n,e in zip(joint_state.name, joint_state.effort)}
-    
+
             for finger in ['FF', 'MF', 'RF', 'LF']:
                 for dic in [self.hand_velocity, self.hand_effort]:
                     if (finger + 'J1') in dic and (finger + 'J2') in dic:
@@ -527,6 +527,6 @@ class ShadowHand_ROS():
 
     def get_tactile_type(self):
         return self.tactile_receiver.get_tactile_type()
-    
+
     def get_tactile_state(self):
         return self.tactile_receiver.get_tactile_state()

@@ -43,21 +43,25 @@ namespace shadow_robot
       nh_ = NodeHandle(ns);
       nh_tilde_ = NodeHandle(nh_, this_node::getName());
     }
-
+    std::string home = getenv("HOME");
+    if (home=="")
+        home="/tmp/";
+    else
+		home+="/.ros/log/";
     //rename existing folder if it exists
-    if( boost::filesystem::exists("/tmp/self_tests") )
+    if( boost::filesystem::exists(home+"self_tests") )
     {
       //delete the last backup if it exists
-      if( boost::filesystem::exists("/tmp/self_tests.bk") )
-        boost::filesystem::remove_all("/tmp/self_tests.bk");
+      if( boost::filesystem::exists(home+"self_tests.bk") )
+        boost::filesystem::remove_all(home+"self_tests.bk");
 
       //backup last test plots
-      boost::filesystem::rename("/tmp/self_tests", "/tmp/self_tests.bk");
+      boost::filesystem::rename(home+"self_tests", home+"self_tests.bk");
     }
     //create folder in /tmp for storing the plots
-    path_to_plots_ = "/tmp/self_tests/"+ros::this_node::getName() + "/";
+    path_to_plots_ = home+"self_tests/"+ros::this_node::getName() + "/";
     boost::filesystem::create_directories(path_to_plots_);
-
+        
     test_runner_.setID("12345");
 
     //add the different tests
@@ -93,12 +97,12 @@ namespace shadow_robot
   void SrSelfTest::test_services_()
   {
     std::vector<std::string> services_to_test;
-    services_to_test.push_back("pr2_controller_manager/list_controller_types");
-    services_to_test.push_back("pr2_controller_manager/list_controllers");
-    services_to_test.push_back("pr2_controller_manager/load_controller");
-    services_to_test.push_back("pr2_controller_manager/reload_controller_libraries");
-    services_to_test.push_back("pr2_controller_manager/switch_controller");
-    services_to_test.push_back("pr2_controller_manager/unload_controller");
+    services_to_test.push_back("controller_manager/list_controller_types");
+    services_to_test.push_back("controller_manager/list_controllers");
+    services_to_test.push_back("controller_manager/load_controller");
+    services_to_test.push_back("controller_manager/reload_controller_libraries");
+    services_to_test.push_back("controller_manager/switch_controller");
+    services_to_test.push_back("controller_manager/unload_controller");
 
     test_runner_.addServicesTest(services_to_test);
   }

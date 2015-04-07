@@ -31,7 +31,7 @@
 #include <sr_utilities/sr_math_utils.hpp>
 #include <std_msgs/Float64.h>
 
-PLUGINLIB_EXPORT_CLASS( controller::SrhSyntouchController, pr2_controller_interface::Controller)
+PLUGINLIB_EXPORT_CLASS( controller::SrhSyntouchController, controller_interface::ControllerBase)
 
 using namespace std;
 
@@ -47,68 +47,59 @@ namespace controller {
     sub_command_.shutdown();
   }
 
-  bool SrhSyntouchController::init(pr2_mechanism_model::RobotState *robot, const std::string &joint_name)
+  bool SrhSyntouchController::init(ros_ethercat_model::RobotState *robot, ros::NodeHandle &n)
   {
-    ROS_DEBUG(" --------- ");
-    ROS_DEBUG_STREAM("Init: " << joint_name);
-
-    assert(robot);
+    ROS_ASSERT(robot);
     robot_ = robot;
-    last_time_ = robot->getTime();
+    node_ = n;
 
-    joint_state_ = robot_->getJointState(joint_name);
+    if (!node_.getParam("joint", joint_name_)) {
+      ROS_ERROR("No joint given (namespace: %s)", node_.getNamespace().c_str());
+      return false;
+    }
+
+    ROS_DEBUG(" --------- ");
+    ROS_DEBUG_STREAM("Init: " << joint_name_);
+
+    joint_state_ = robot_->getJointState(joint_name_);
     if (!joint_state_)
     {
       ROS_ERROR("SrhMixedPositionVelocityController could not find joint named \"%s\"\n",
-                joint_name.c_str());
+                joint_name_.c_str());
       return false;
     }
     if (!joint_state_->calibrated_)
     {
-      ROS_ERROR("Joint %s not calibrated for SrhSyntouchController", joint_name.c_str());
+      ROS_ERROR("Joint %s not calibrated for SrhSyntouchController", joint_name_.c_str());
       return false;
     }
 
     //init the pointer to the biotacs data, updated at 1kHz
-    actuator_ = static_cast<sr_actuator::SrActuator*>( robot->model_->getActuator( joint_name ) );
+    actuator_ = static_cast<sr_actuator::SrMotorActuator*>( robot->getActuator( joint_name_ ) );
 
     after_init();
     return true;
   }
 
-  bool SrhSyntouchController::init(pr2_mechanism_model::RobotState *robot, ros::NodeHandle &n)
-  {
-    assert(robot);
-    node_ = n;
 
-    std::string joint_name;
-    if (!node_.getParam("joint", joint_name)) {
-      ROS_ERROR("No joint given (namespace: %s)", node_.getNamespace().c_str());
-      return false;
-    }
-
-    return init(robot, joint_name);
-  }
-
-
-  void SrhSyntouchController::starting()
+  void SrhSyntouchController::starting(const ros::Time& time)
   {
     command_ = joint_state_->position_;
 
-    ROS_WARN("Reseting PID");
+    ROS_WARN_STREAM("Reseting PID for joint  " << joint_state_->joint_->name);
   }
 
-  void SrhSyntouchController::update()
+  void SrhSyntouchController::update(const ros::Time& time, const ros::Duration& period)
   {
     if (!joint_state_->calibrated_)
       return;
 
-    assert(robot_ != NULL);
-    ros::Time time = robot_->getTime();
-    assert(joint_state_->joint_);
-    dt_= time - last_time_;
+    ROS_ASSERT(robot_);
+    ROS_ASSERT(joint_state_->joint_);
 
-    if (!initialized_)
+    if (initialized_)
+      command_ = joint_state_->commanded_position_;
+    else
     {
       initialized_ = true;
       command_ = joint_state_->position_;
@@ -124,7 +115,7 @@ namespace controller {
     // TACTILES
     /////
     //you have access here to the whole data coming from the 5 tactiles at full speed.
-    double my_first_finger_tactile_pac0 = actuator_->state_.tactiles_->at(0).biotac.pac0;
+    double my_first_finger_tactile_pac0 = actuator_->motor_state_.tactiles_->at(0).biotac.pac0;
     if(loop_count_ % 10 == 0)
     {
       ROS_ERROR_STREAM("PAC0, tactile " << my_first_finger_tactile_pac0);
@@ -152,17 +143,15 @@ namespace controller {
         controller_state_publisher_->msg_.process_value_dot = joint_state_->velocity_;
 
         controller_state_publisher_->msg_.error = error_position;
-        controller_state_publisher_->msg_.time_step = dt_.toSec();
+        controller_state_publisher_->msg_.time_step = period.toSec();
 
         controller_state_publisher_->msg_.command = commanded_effort;
-        controller_state_publisher_->msg_.measured_effort = joint_state_->measured_effort_;
+        controller_state_publisher_->msg_.measured_effort = joint_state_->effort_;
 
         controller_state_publisher_->unlockAndPublish();
       }
     }
     loop_count_++;
-
-    last_time_ = time;
   }
 }
 

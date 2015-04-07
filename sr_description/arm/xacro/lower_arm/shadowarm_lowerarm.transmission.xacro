@@ -10,8 +10,6 @@
       <actuator name="elbow_abduction" />
       <joint name="ElbowJSwing" />
       <mechanicalReduction>1</mechanicalReduction>
-      <motorTorqueConstant>1</motorTorqueConstant>
-      <pulsesPerRevolution>90000</pulsesPerRevolution>
     </transmission>
 
   </xacro:macro>

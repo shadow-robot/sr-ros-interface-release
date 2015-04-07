@@ -37,31 +37,25 @@ namespace controller
   {
   public:
     SrhMuscleJointPositionController();
-    virtual ~SrhMuscleJointPositionController();
 
-    bool init( pr2_mechanism_model::RobotState *robot, const std::string &joint_name,
-               boost::shared_ptr<control_toolbox::Pid> pid_position);
-    bool init(pr2_mechanism_model::RobotState *robot, ros::NodeHandle &n);
+    bool init(ros_ethercat_model::RobotState *robot, ros::NodeHandle &n);
 
-    virtual void starting();
+    virtual void starting(const ros::Time& time);
 
     /*!
      * \brief Issues commands to the joint. Should be called at regular intervals
      */
-    virtual void update();
+    virtual void update(const ros::Time& time, const ros::Duration& period);
 
     virtual void getGains(double &p, double &i, double &d, double &i_max, double &i_min);
     virtual bool resetGains(std_srvs::Empty::Request& req, std_srvs::Empty::Response& resp);
     bool setGains(sr_robot_msgs::SetPidGains::Request &req, sr_robot_msgs::SetPidGains::Response &resp);
 
   private:
-    boost::shared_ptr<control_toolbox::Pid> pid_controller_position_;       /**< Internal PID controller for the position loop. */
+    boost::scoped_ptr<control_toolbox::Pid> pid_controller_position_;       /**< Internal PID controller for the position loop. */
 
     //publish our joint controller state
-    boost::shared_ptr<realtime_tools::RealtimePublisher<sr_robot_msgs::JointMusclePositionControllerState> > controller_state_publisher_;
-
-    ///clamps the force demand to this value
-    double max_force_demand;
+    boost::scoped_ptr<realtime_tools::RealtimePublisher<sr_robot_msgs::JointMusclePositionControllerState> > controller_state_publisher_;
 
     ///the position deadband value used in the hysteresis_deadband
     double position_deadband;
@@ -75,7 +69,10 @@ namespace controller
     ///read all the controller settings from the parameter server
     void read_parameters();
 
-    std::string joint_name_;
+    ///set the position target from a topic
+    void setCommandCB(const std_msgs::Float64ConstPtr& msg);
+
+    void resetJointState();
   };
 } // namespace
 

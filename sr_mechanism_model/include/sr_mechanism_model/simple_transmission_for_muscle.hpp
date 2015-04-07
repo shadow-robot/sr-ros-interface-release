@@ -36,44 +36,22 @@
  *
  * modified by Ugo Cupcic
  */
-#ifndef _SR_SIMPLE_TRANSMISSION_H_
-#define _SR_SIMPLE_TRANSMISSION_H_
+#ifndef _SR_SIMPLE_TRANSMISSION_FOR_MUSCLE_HPP_
+#define _SR_SIMPLE_TRANSMISSION_FOR_MUSCLE_HPP_
 
-#include <tinyxml.h>
-#include "pr2_mechanism_model/transmission.h"
-#include "pr2_mechanism_model/joint.h"
-#include "pr2_hardware_interface/hardware_interface.h"
-#include "pr2_mechanism_model/joint_calibration_simulator.h"
+#include "sr_mechanism_model/simple_transmission.hpp"
 
-namespace sr_mechanism_model {
+namespace sr_mechanism_model
+{
 
-        class SimpleTransmissionForMuscle : public pr2_mechanism_model::Transmission
-        {
-        public:
-                SimpleTransmissionForMuscle() {}
-                ~SimpleTransmissionForMuscle() {}
+class SimpleTransmissionForMuscle : public sr_mechanism_model::SimpleTransmission
+{
+public:
+  bool initXml(TiXmlElement *config, ros_ethercat_model::RobotState *robot);
+  void propagatePosition();
+  void propagateEffort();
+};
 
-                bool initXml(TiXmlElement *config, pr2_mechanism_model::Robot *robot);
-                bool initXml(TiXmlElement *config);
-
-                double mechanical_reduction_;
-
-                void propagatePosition(std::vector<pr2_hardware_interface::Actuator*>&,
-                                       std::vector<pr2_mechanism_model::JointState*>&);
-                void propagatePositionBackwards(std::vector<pr2_mechanism_model::JointState*>&,
-                                                std::vector<pr2_hardware_interface::Actuator*>&);
-                void propagateEffort(std::vector<pr2_mechanism_model::JointState*>&,
-                                     std::vector<pr2_hardware_interface::Actuator*>&);
-                void propagateEffortBackwards(std::vector<pr2_hardware_interface::Actuator*>&,
-                                              std::vector<pr2_mechanism_model::JointState*>&);
-
-        private:
-                int simulated_actuator_timestamp_initialized_;
-                ros::Time simulated_actuator_start_time_;
-
-                pr2_mechanism_model::JointCalibrationSimulator joint_calibration_simulator_;
-        };
-
-} // namespace pr2_mechanism_model
+} // namespace sr_mechanism_model
 
 #endif

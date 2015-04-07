@@ -38,18 +38,14 @@ namespace controller
   class SrhEffortJointController : public SrController
   {
   public:
-    SrhEffortJointController();
-    virtual ~SrhEffortJointController();
+    bool init(ros_ethercat_model::RobotState *robot, ros::NodeHandle &n);
 
-    bool init( pr2_mechanism_model::RobotState *robot, const std::string &joint_name);
-    bool init(pr2_mechanism_model::RobotState *robot, ros::NodeHandle &n);
-
-    virtual void starting();
+    virtual void starting(const ros::Time& time);
 
     /*!
      * \brief Issues commands to the joint. Should be called at regular intervals
      */
-    virtual void update();
+    virtual void update(const ros::Time& time, const ros::Duration& period);
 
     virtual void getGains(double &p, double &i, double &d, double &i_max, double &i_min);
     virtual bool resetGains(std_srvs::Empty::Request& req, std_srvs::Empty::Response& resp);
@@ -58,6 +54,9 @@ namespace controller
   private:
     ///read all the controller settings from the parameter server
     void read_parameters();
+
+    ///set the effort target from a topic
+    void setCommandCB(const std_msgs::Float64ConstPtr& msg);
   };
 } // namespace
 

@@ -41,19 +41,15 @@ namespace controller
   public:
 
     SrhMixedPositionVelocityJointController();
-    virtual ~SrhMixedPositionVelocityJointController();
 
-    bool init( pr2_mechanism_model::RobotState *robot, const std::string &joint_name,
-               boost::shared_ptr<control_toolbox::Pid> pid_position,
-               boost::shared_ptr<control_toolbox::Pid> pid_velocity);
-    bool init(pr2_mechanism_model::RobotState *robot, ros::NodeHandle &n);
+    bool init(ros_ethercat_model::RobotState *robot, ros::NodeHandle &n);
 
-    virtual void starting();
+    virtual void starting(const ros::Time& time);
 
     /*!
      * \brief Issues commands to the joint. Should be called at regular intervals
      */
-    virtual void update();
+    virtual void update(const ros::Time& time, const ros::Duration& period);
 
     virtual void getGains(double &p, double &i, double &d, double &i_max, double &i_min);
     virtual void getGains_velocity(double &p, double &i, double &d, double &i_max, double &i_min);
@@ -61,11 +57,11 @@ namespace controller
     bool setGains(sr_robot_msgs::SetMixedPositionVelocityPidGains::Request &req, sr_robot_msgs::SetMixedPositionVelocityPidGains::Response &resp);
 
   private:
-    boost::shared_ptr<control_toolbox::Pid> pid_controller_position_;       /**< Internal PID controller for the position loop. */
-    boost::shared_ptr<control_toolbox::Pid> pid_controller_velocity_;       /**< Internal PID controller for the velocity loop. */
+    boost::scoped_ptr<control_toolbox::Pid> pid_controller_position_;       /**< Internal PID controller for the position loop. */
+    boost::scoped_ptr<control_toolbox::Pid> pid_controller_velocity_;       /**< Internal PID controller for the velocity loop. */
 
     //publish our joint controller state
-    boost::shared_ptr<realtime_tools::RealtimePublisher<sr_robot_msgs::JointControllerState> > controller_state_publisher_;
+    boost::scoped_ptr<realtime_tools::RealtimePublisher<sr_robot_msgs::JointControllerState> > controller_state_publisher_;
 
     /// The values for the velocity demand saturation
     double max_velocity_, min_velocity_;
@@ -90,6 +86,11 @@ namespace controller
 
     ///smallest demand we can send to the motors
     int motor_min_force_threshold;
+
+    ///set the position target from a topic
+    void setCommandCB(const std_msgs::Float64ConstPtr& msg);
+
+    void resetJointState();
   };
 } // namespace
 

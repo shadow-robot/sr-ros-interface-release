@@ -41,21 +41,20 @@ namespace controller
     SrhSyntouchController();
     ~SrhSyntouchController();
 
-    bool init( pr2_mechanism_model::RobotState *robot, const std::string &joint_name );
-    bool init(pr2_mechanism_model::RobotState *robot, ros::NodeHandle &n);
+    bool init(ros_ethercat_model::RobotState *robot, ros::NodeHandle &n);
 
-    virtual void starting();
+    virtual void starting(const ros::Time& time);
 
     /*!
      * \brief Issues commands to the joint. Should be called at regular intervals
      */
-    virtual void update();
+    virtual void update(const ros::Time& time, const ros::Duration& period);
 
   private:
     //publish our joint controller state
-    boost::shared_ptr<realtime_tools::RealtimePublisher<sr_robot_msgs::JointControllerState> > controller_state_publisher_;
+    boost::scoped_ptr<realtime_tools::RealtimePublisher<sr_robot_msgs::JointControllerState> > controller_state_publisher_;
 
-    sr_actuator::SrActuator* actuator_;
+    sr_actuator::SrMotorActuator* actuator_;
   };
 } // namespace
 

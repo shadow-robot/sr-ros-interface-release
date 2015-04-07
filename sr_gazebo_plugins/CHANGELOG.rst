@@ -2,26 +2,19 @@
 Changelog for package sr_gazebo_plugins
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-1.3.5 (2014-09-22)
+1.4.0 (2015-04-07)
 ------------------
+* Inertia now exact values, with inertia tensor at COM (gazebo and ode support the small values now)
+  Removed explicit viscous damping from sr_gazebo_plugin,
+  enabled springDamper in each joint (implicit viscous damping)
+  changed simulation parameters for stability
+  and retuned the controllers, explicitely define friction_deadband for simulated controllers (default is for real hand and is too high)
+* Added shutdown-timeout=1.0 in controller spawner to improve shutdown time
+  Added a boolean to stop spinner in gazebo controller manager plugin to improve shutdown
+* using prefix on joints didn't work with gazebo controllers. This is now working
 
-1.3.4 (2014-09-19)
+1.3.1 (2014-07-18)
 ------------------
-* Fix dependencies.
-* Fix gazebo include paths
-  This is needed to be compatible with newer Gazebo ABI/API
-
-1.3.3 (2014-09-19)
-------------------
-* Non-existent version (used to avoid version number conflict with indigo).
-
-1.3.2 (2014-09-19)
-------------------
-* Non-existent version (used to avoid version number conflict with indigo).
-
-1.3.1 (2014-09-19)
-------------------
-* Non-existent version (used to avoid version number conflict with indigo).
 
 1.3.0 (2014-02-11)
 ------------------

@@ -4,14 +4,14 @@
  * @date   Fri Mar  4 13:08:22 2011
  *
  * @brief  Implement an actionlib server to execute a
- * pr2_controllers_msgs::JointTrajectoryAction. Follows the
+ * control_msgs::JointTrajectoryAction. Follows the
  * given trajectory with the arm.
  *
  *
  */
 
 #include "sr_mechanism_controllers/joint_spline_trajectory_action_controller.hpp"
-#include <pr2_mechanism_msgs/ListControllers.h>
+#include <controller_manager_msgs/ListControllers.h>
 #include <sr_utilities/getJointState.h>
 #include <std_msgs/Float64.h>
 #include <sr_robot_msgs/sendupdate.h>
@@ -162,7 +162,7 @@ JointTrajectoryActionController::JointTrajectoryActionController() :
     joint_labels.push_back("ElbowJRotate");
     joint_labels.push_back("WRJ2");
     joint_labels.push_back("WRJ1");
-  
+
     // fillup a joint_state_idx_map
     for(unsigned int i=0;i<joint_labels.size();i++)
     {
@@ -170,24 +170,24 @@ JointTrajectoryActionController::JointTrajectoryActionController() :
     }
 
   //look for controllers and build controller name to joint map
-  if( ros::service::waitForService("sr_controller_manager/list_controllers",20000) )
+  if( ros::service::waitForService("controller_manager/list_controllers",20000) )
   {
     use_sendupdate=false;
-    ros::ServiceClient controller_list_client = nh.serviceClient<pr2_mechanism_msgs::ListControllers>("sr_controller_manager/list_controllers");
-    pr2_mechanism_msgs::ListControllers controller_list;
+    ros::ServiceClient controller_list_client = nh.serviceClient<controller_manager_msgs::ListControllers>("controller_manager/list_controllers");
+    controller_manager_msgs::ListControllers controller_list;
     std::string controlled_joint_name;
 
 	// query the list
     controller_list_client.call(controller_list);
 	// build the map
-    for (unsigned int i=0; i<controller_list.response.controllers.size() ; i++ )
+    for (unsigned int i=0; i<controller_list.response.controller.size() ; i++ )
     {
-      if(controller_list.response.state[i]=="running")
+      if(controller_list.response.controller[i].state=="running")
       {
-        if (nh.getParam("/"+controller_list.response.controllers[i]+"/joint", controlled_joint_name))
+        if (nh.getParam("/"+controller_list.response.controller[i].name+"/joint", controlled_joint_name))
         {
-          ROS_DEBUG("controller %d:%s controls joint %s\n",i,controller_list.response.controllers[i].c_str(),controlled_joint_name.c_str());
-          jointControllerMap[controlled_joint_name]= controller_list.response.controllers[i] ;
+          ROS_DEBUG("controller %d:%s controls joint %s\n",i,controller_list.response.controller[i].name.c_str(),controlled_joint_name.c_str());
+          jointControllerMap[controlled_joint_name]= controller_list.response.controller[i].name ;
         }
       }
     }
@@ -211,7 +211,7 @@ JointTrajectoryActionController::JointTrajectoryActionController() :
   }
   else
   {
-    ROS_WARN("sr_controller_manager not found, switching back to sendupdates");
+    ROS_WARN("controller_manager not found, switching back to sendupdates");
     use_sendupdate=true;
     sr_arm_target_pub = nh.advertise<sr_robot_msgs::sendupdate>("/sr_arm/sendupdate", 2);
     sr_hand_target_pub = nh.advertise<sr_robot_msgs::sendupdate>("/srh/sendupdate", 2);
@@ -231,25 +231,19 @@ JointTrajectoryActionController::JointTrajectoryActionController() :
   }
   ROS_INFO("Got getJointState");
   joint_names_=joint_labels;
- 
+
   q.resize(joint_names_.size());
   qd.resize(joint_names_.size());
   qdd.resize(joint_names_.size());
 
   desired_joint_state_pusblisher = nh.advertise<sensor_msgs::JointState> ("/desired_joint_states", 2);
-  
+
   command_sub = nh.subscribe("command", 1, &JointTrajectoryActionController::commandCB, this);
   ROS_INFO("Listening to commands");
-  
+
   action_server->start();
   ROS_INFO("Action server started");
 }
-
-JointTrajectoryActionController::~JointTrajectoryActionController()
-{
-
-}
-
 
 void JointTrajectoryActionController::updateJointState()
 {
@@ -296,7 +290,7 @@ void JointTrajectoryActionController::execute_trajectory(const control_msgs::Fol
 
   boost::shared_ptr<SpecifiedTrajectory> new_traj_ptr(new SpecifiedTrajectory);
   SpecifiedTrajectory &traj = *new_traj_ptr;
- 
+
 
   // Finds the end conditions of the final segment
   std::vector<double> prev_positions(joint_names_.size());
@@ -318,7 +312,7 @@ void JointTrajectoryActionController::execute_trajectory(const control_msgs::Fol
     }
     prev_velocities[i]=0.0;
     prev_accelerations[i]=0.0;
-  
+
     ROS_DEBUG("    %.2lf, %.2lf, %.2lf  (%s)", prev_positions[i], prev_velocities[i],
               prev_accelerations[i], joint_names_[i].c_str());
   }
@@ -326,7 +320,7 @@ void JointTrajectoryActionController::execute_trajectory(const control_msgs::Fol
   std::vector<double> positions;
   std::vector<double> velocities;
   std::vector<double> accelerations;
-  
+
   std::vector<double> durations(goal->trajectory.points.size());
   if (goal->trajectory.points.size() > 0)
     durations[0] = goal->trajectory.points[0].time_from_start.toSec();
@@ -334,7 +328,7 @@ void JointTrajectoryActionController::execute_trajectory(const control_msgs::Fol
     durations[i] = (goal->trajectory.points[i].time_from_start - goal->trajectory.points[i-1].time_from_start).toSec();
 
   // no continuous joints so do not check if we should wrap
-  
+
   // extract the traj
   for (size_t i = 0; i < goal->trajectory.points.size(); ++i)
   {
@@ -363,7 +357,7 @@ void JointTrajectoryActionController::execute_trajectory(const control_msgs::Fol
       ROS_ERROR("Command point %d has %d elements for the positions", (int)i, (int)goal->trajectory.points[i].positions.size());
       return;
     }
-    
+
     // Re-orders the joints in the command to match the internal joint order.
     accelerations.resize(goal->trajectory.points[i].accelerations.size());
     velocities.resize(goal->trajectory.points[i].velocities.size());
@@ -416,7 +410,7 @@ void JointTrajectoryActionController::execute_trajectory(const control_msgs::Fol
 
     prev_positions = positions;
     prev_velocities = velocities;
-    prev_accelerations = accelerations; 
+    prev_accelerations = accelerations;
   }
 
   // ------ Commits the new trajectory
@@ -464,11 +458,11 @@ void JointTrajectoryActionController::execute_trajectory(const control_msgs::Fol
 
 	last_time_ = ros::Time::now();
   while(ros::ok())
-  { 
+  {
     ros::Time time = ros::Time::now();
     ros::Duration dt = time - last_time_;
     last_time_ = time;
-    
+
     // ------ Finds the current segment
     ROS_DEBUG("Find current segment");
 
@@ -479,10 +473,10 @@ void JointTrajectoryActionController::execute_trajectory(const control_msgs::Fol
       ++seg;
     }
 
-    // if the last trajectory is already in the past, stop the servoing 
+    // if the last trajectory is already in the past, stop the servoing
     if( (traj[traj.size()-1].start_time+traj[traj.size()-1].duration) < time.toSec())
-    {  
-		   ROS_DEBUG("trajectory is finished %f<%f",(traj[traj.size()-1].start_time+traj[traj.size()-1].duration),time.toSec());   
+    {
+		   ROS_DEBUG("trajectory is finished %f<%f",(traj[traj.size()-1].start_time+traj[traj.size()-1].duration),time.toSec());
        break;
     }
 
@@ -495,7 +489,7 @@ void JointTrajectoryActionController::execute_trajectory(const control_msgs::Fol
 		  success = false;
       break;
     }
-    
+
     // ------ Trajectory Sampling
     ROS_DEBUG("Sample the trajectory");
 
@@ -505,7 +499,7 @@ void JointTrajectoryActionController::execute_trajectory(const control_msgs::Fol
                                  time.toSec() - traj[seg].start_time,
                                  q[i], qd[i], qdd[i]);
     }
-    ROS_DEBUG("Sampled the trajectory"); 
+    ROS_DEBUG("Sampled the trajectory");
     //check if preempted
     if (action_server->isPreemptRequested() || !ros::ok())
     {
@@ -532,7 +526,7 @@ void JointTrajectoryActionController::execute_trajectory(const control_msgs::Fol
           controller_publishers.at(controller_pub_idx-1).publish(target_msg);
         }
       }
-      else 
+      else
       {
         joint_vector_traj[i].joint_target = q[i] * 57.3;
         ROS_DEBUG("traj[%s]: %f", joint_vector_traj[i].joint_name.c_str(), joint_vector_traj[i].joint_target);
@@ -545,7 +539,7 @@ void JointTrajectoryActionController::execute_trajectory(const control_msgs::Fol
 
     if(use_sendupdate)
     {
-      sendupdate_msg_traj.sendupdate_list = joint_vector_traj;  
+      sendupdate_msg_traj.sendupdate_list = joint_vector_traj;
       sr_arm_target_pub.publish(sendupdate_msg_traj);
       sr_hand_target_pub.publish(sendupdate_msg_traj);
     }
@@ -592,7 +586,7 @@ void JointTrajectoryActionController::execute_trajectory(const control_msgs::Fol
 void JointTrajectoryActionController::commandCB(const trajectory_msgs::JointTrajectoryConstPtr &msg)
 {
   bool success = true;
-  
+
   ros::Time time = ros::Time::now()-ros::Duration(0.05);
   last_time_ = time;
 
@@ -601,7 +595,7 @@ void JointTrajectoryActionController::commandCB(const trajectory_msgs::JointTraj
 
   boost::shared_ptr<SpecifiedTrajectory> new_traj_ptr(new SpecifiedTrajectory);
   SpecifiedTrajectory &traj = *new_traj_ptr;
- 
+
 
   // Finds the end conditions of the final segment
   std::vector<double> prev_positions(joint_names_.size());
@@ -623,7 +617,7 @@ void JointTrajectoryActionController::commandCB(const trajectory_msgs::JointTraj
     }
     prev_velocities[i]=0.0;
     prev_accelerations[i]=0.0;
-  
+
     ROS_DEBUG("    %.2lf, %.2lf, %.2lf  (%s)", prev_positions[i], prev_velocities[i],
               prev_accelerations[i], joint_names_[i].c_str());
   }
@@ -631,7 +625,7 @@ void JointTrajectoryActionController::commandCB(const trajectory_msgs::JointTraj
   std::vector<double> positions;
   std::vector<double> velocities;
   std::vector<double> accelerations;
-  
+
   std::vector<double> durations(msg->points.size());
   if (msg->points.size() > 0)
     durations[0] = msg->points[0].time_from_start.toSec();
@@ -639,7 +633,7 @@ void JointTrajectoryActionController::commandCB(const trajectory_msgs::JointTraj
     durations[i] = (msg->points[i].time_from_start - msg->points[i-1].time_from_start).toSec();
 
   // no continuous joints so do not check if we should wrap
-  
+
   // extract the traj
   for (size_t i = 0; i < msg->points.size(); ++i)
   {
@@ -674,7 +668,7 @@ void JointTrajectoryActionController::commandCB(const trajectory_msgs::JointTraj
       ROS_DEBUG("Command point %d has %d elements for the positions", (int)i, (int)msg->points[i].positions.size());
       return;
     }
-    
+
      // Re-orders the joints in the command to match the internal joint order.
     accelerations.resize(msg->points[i].accelerations.size());
     velocities.resize(msg->points[i].velocities.size());
@@ -727,7 +721,7 @@ void JointTrajectoryActionController::commandCB(const trajectory_msgs::JointTraj
 
     prev_positions = positions;
     prev_velocities = velocities;
-    prev_accelerations = accelerations; 
+    prev_accelerations = accelerations;
   }
 
   // ------ Commits the new trajectory
@@ -774,11 +768,11 @@ void JointTrajectoryActionController::commandCB(const trajectory_msgs::JointTraj
   ROS_DEBUG("Entering the execution loop");
 
   while(ros::ok())
-  { 
+  {
     ros::Time time = ros::Time::now();
     ros::Duration dt = time - last_time_;
     last_time_ = time;
-    
+
     // ------ Finds the current segment
     ROS_DEBUG("Find current segment");
 
@@ -789,10 +783,10 @@ void JointTrajectoryActionController::commandCB(const trajectory_msgs::JointTraj
       ++seg;
     }
 
-    // if the last trajectory is already in the past, stop the servoing 
+    // if the last trajectory is already in the past, stop the servoing
     if( (traj[traj.size()-1].start_time+traj[traj.size()-1].duration) < time.toSec())
-    {  
-      ROS_DEBUG("trajectory is finished %f<%f",(traj[traj.size()-1].start_time+traj[traj.size()-1].duration),time.toSec());   
+    {
+      ROS_DEBUG("trajectory is finished %f<%f",(traj[traj.size()-1].start_time+traj[traj.size()-1].duration),time.toSec());
        break;
     }
 
@@ -804,7 +798,7 @@ void JointTrajectoryActionController::commandCB(const trajectory_msgs::JointTraj
         ROS_ERROR("No earlier segments.  First segment starts at %.3lf (now = %.3lf)", traj[0].start_time, time.toSec());
       return;
     }
-    
+
     // ------ Trajectory Sampling
     ROS_DEBUG("Sample the trajectory");
 
@@ -814,7 +808,7 @@ void JointTrajectoryActionController::commandCB(const trajectory_msgs::JointTraj
                                  time.toSec() - traj[seg].start_time,
                                  q[i], qd[i], qdd[i]);
     }
-    ROS_DEBUG("Sampled the trajectory"); 
+    ROS_DEBUG("Sampled the trajectory");
     //check if preempted
     if (!ros::ok())
     {
@@ -841,7 +835,7 @@ void JointTrajectoryActionController::commandCB(const trajectory_msgs::JointTraj
           controller_publishers.at(controller_pub_idx-1).publish(target_msg);
         }
       }
-      else 
+      else
       {
         joint_vector_traj[i].joint_target = q[i] * 57.3;
         ROS_DEBUG("traj[%s]: %f", joint_vector_traj[i].joint_name.c_str(), joint_vector_traj[i].joint_target);
@@ -854,7 +848,7 @@ void JointTrajectoryActionController::commandCB(const trajectory_msgs::JointTraj
 
     if(use_sendupdate)
     {
-      sendupdate_msg_traj.sendupdate_list = joint_vector_traj;  
+      sendupdate_msg_traj.sendupdate_list = joint_vector_traj;
       sr_arm_target_pub.publish(sendupdate_msg_traj);
       sr_hand_target_pub.publish(sendupdate_msg_traj);
     }
