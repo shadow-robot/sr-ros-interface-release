@@ -36,65 +36,27 @@
  *
  * modified by Ugo Cupcic
  */
+#ifndef _SR_NULL_TRANSMISSION_HPP_
+#define _SR_NULL_TRANSMISSION_HPP_
 
-#include "sr_mechanism_model/simple_transmission.hpp"
-
-using namespace ros_ethercat_model;
-using namespace std;
-using namespace sr_actuator;
-
-PLUGINLIB_EXPORT_CLASS(sr_mechanism_model::SimpleTransmission, Transmission)
+#include <math.h>
+#include <tinyxml.h>
+#include <sr_hardware_interface/sr_actuator.hpp>
+#include <boost/smart_ptr/scoped_ptr.hpp>
+#include <ros_ethercat_model/robot_state.hpp>
+#include <pluginlib/class_list_macros.h>
 
 namespace sr_mechanism_model
 {
 
-bool SimpleTransmission::initXml(TiXmlElement *elt, RobotState *robot)
+class NullTransmission : public ros_ethercat_model::Transmission
 {
-  if (!ros_ethercat_model::Transmission::initXml(elt, robot))
-    return false;
+public:
+  bool initXml(TiXmlElement *config, ros_ethercat_model::RobotState *robot);
+  void propagatePosition();
+  void propagateEffort();
+};
 
-  //reading the joint name
-  TiXmlElement *jel = elt->FirstChildElement("joint");
-  if (!jel || !jel->Attribute("name"))
-  {
-    ROS_ERROR_STREAM("Joint name not specified in transmission " << name_);
-    return false;
-  }
+} // namespace sr_mechanism_model
 
-  TiXmlElement *ael = elt->FirstChildElement("actuator");
-  if (!ael || !ael->Attribute("name"))
-  {
-    ROS_ERROR_STREAM("Transmission " << name_ << " has no actuator in configuration");
-    return false;
-  }
-
-  joint_ = robot->getJointState(jel->Attribute("name"));
-  actuator_ = new SrMotorActuator();
-  actuator_->name_ = ael->Attribute("name");
-  actuator_->command_.enable_ = true;
-
-  return true;
-}
-
-void SimpleTransmission::propagatePosition()
-{
-  SrMotorActuator *act = static_cast<SrMotorActuator*>(actuator_);
-  joint_->position_ = act->state_.position_;
-  joint_->velocity_ = act->state_.velocity_;
-  joint_->effort_ = act->state_.last_measured_effort_;
-}
-
-void SimpleTransmission::propagateEffort()
-{
-  SrMotorActuator *act = static_cast<SrMotorActuator*>(actuator_);
-  act->command_.enable_ = true;
-  act->command_.effort_ = joint_->commanded_effort_;
-}
-
-} //end namespace
-
-/* For the emacs weenies in the crowd.
-Local Variables:
-   c-basic-offset: 2
-End:
- */
+#endif
