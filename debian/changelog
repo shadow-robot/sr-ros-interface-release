@@ -1,0 +1,19 @@
+ros-indigo-sr-utilities (1.4.0-0trusty) trusty; urgency=high
+
+  * initialize commands to current state
+
+ -- Shadow Robot's software team <software@shadowrobot.com>  Mon, 06 Apr 2015 23:00:00 -0000
+
+ros-indigo-sr-utilities (1.3.1-0trusty) trusty; urgency=high
+
+
+
+ -- Shadow Robot's software team <software@shadowrobot.com>  Thu, 17 Jul 2014 23:00:00 -0000
+
+ros-indigo-sr-utilities (1.3.0-0trusty) trusty; urgency=high
+
+  * first hydro release
+
+ -- Shadow Robot's software team <software@shadowrobot.com>  Tue, 11 Feb 2014 00:00:00 -0000
+
+
