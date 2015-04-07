@@ -44,7 +44,7 @@ bool J0Transmission::initXml(TiXmlElement *elt, RobotState *robot)
     return false;
 
   string joint2_name = joint_->joint_->name;
-  joint2_name[3] = '2';
+  joint2_name[joint2_name.size()-1] = '2';
   joint2_ = robot->getJointState(joint2_name);
 
   return true;
@@ -69,8 +69,8 @@ void J0Transmission::propagatePosition()
     joint_->velocity_ = act->state_.velocity_ / 2.0;
     joint2_->velocity_ = act->state_.velocity_ / 2.0;
 
-    joint_->measured_effort_ = act->state_.last_measured_effort_;
-    joint2_->measured_effort_ = act->state_.last_measured_effort_;
+    joint_->effort_ = act->state_.last_measured_effort_;
+    joint2_->effort_ = act->state_.last_measured_effort_;
   }
   else if (size == 0)
   {
@@ -86,8 +86,8 @@ void J0Transmission::propagatePosition()
     joint_->velocity_ = act->state_.velocity_ / 2.0;
     joint2_->velocity_ = act->state_.velocity_ / 2.0;
 
-    joint_->measured_effort_ = act->state_.last_measured_effort_ / 2.0;
-    joint2_->measured_effort_ = act->state_.last_measured_effort_ / 2.0;
+    joint_->effort_ = act->state_.last_measured_effort_ / 2.0;
+    joint2_->effort_ = act->state_.last_measured_effort_ / 2.0;
   }
 }
 
