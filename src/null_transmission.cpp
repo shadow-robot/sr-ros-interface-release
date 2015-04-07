@@ -37,18 +37,18 @@
  * modified by Ugo Cupcic
  */
 
-#include "sr_mechanism_model/simple_transmission.hpp"
+#include "sr_mechanism_model/null_transmission.hpp"
 
 using namespace ros_ethercat_model;
 using namespace std;
 using namespace sr_actuator;
 
-PLUGINLIB_EXPORT_CLASS(sr_mechanism_model::SimpleTransmission, Transmission)
+PLUGINLIB_EXPORT_CLASS(sr_mechanism_model::NullTransmission, Transmission)
 
 namespace sr_mechanism_model
 {
 
-bool SimpleTransmission::initXml(TiXmlElement *elt, RobotState *robot)
+bool NullTransmission::initXml(TiXmlElement *elt, RobotState *robot)
 {
   if (!ros_ethercat_model::Transmission::initXml(elt, robot))
     return false;
@@ -69,26 +69,26 @@ bool SimpleTransmission::initXml(TiXmlElement *elt, RobotState *robot)
   }
 
   joint_ = robot->getJointState(jel->Attribute("name"));
-  actuator_ = new SrMotorActuator();
+  actuator_ = new ros_ethercat_model::Actuator();
   actuator_->name_ = ael->Attribute("name");
   actuator_->command_.enable_ = true;
 
   return true;
 }
 
-void SimpleTransmission::propagatePosition()
+void NullTransmission::propagatePosition()
 {
-  SrMotorActuator *act = static_cast<SrMotorActuator*>(actuator_);
-  joint_->position_ = act->state_.position_;
-  joint_->velocity_ = act->state_.velocity_;
-  joint_->effort_ = act->state_.last_measured_effort_;
+//  SrMotorActuator *act = static_cast<SrMotorActuator*>(actuator_);
+//  joint_->position_ = act->state_.position_;
+//  joint_->velocity_ = act->state_.velocity_;
+//  joint_->effort_ = act->state_.last_measured_effort_;
 }
 
-void SimpleTransmission::propagateEffort()
+void NullTransmission::propagateEffort()
 {
-  SrMotorActuator *act = static_cast<SrMotorActuator*>(actuator_);
-  act->command_.enable_ = true;
-  act->command_.effort_ = joint_->commanded_effort_;
+//  SrMotorActuator *act = static_cast<SrMotorActuator*>(actuator_);
+//  act->command_.enable_ = true;
+//  act->command_.effort_ = joint_->commanded_effort_;
 }
 
 } //end namespace
