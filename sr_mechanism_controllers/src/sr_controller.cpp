@@ -37,11 +37,19 @@ using namespace std;
 namespace controller {
 
   SrController::SrController()
-    : joint_state_(NULL), command_(0),
-      min_(0.0), max_(sr_math_utils::pi),
-      loop_count_(0),  initialized_(false), robot_(NULL),
+    : joint_state_(NULL),
+      joint_state_2(NULL),
+      has_j2(false),
+      command_(0),
+      min_(0.0),
+      max_(sr_math_utils::pi),
+      loop_count_(0),
+      initialized_(false),
+      robot_(NULL),
       n_tilde_("~"),
-      max_force_demand(1023.), friction_deadband(5), max_force_factor_(1.0)
+      max_force_demand(1023.),
+      friction_deadband(5),
+      max_force_factor_(1.0)
   {
   }
 
@@ -50,61 +58,46 @@ namespace controller {
     sub_command_.shutdown();
   }
 
+  bool SrController::is_joint_0()
+  {
+    // joint_name_ has unknown length
+    // it is assumed that last char is the joint number
+    if (joint_name_[joint_name_.size()-1] == '0')
+      return true;
+    return false;
+  }
+
+  void SrController::get_joints_states_1_2()
+  {
+    string j1 = joint_name_, j2 = joint_name_;
+    j1[j1.size()-1] = '1';
+    j2[j2.size()-1] = '2';
+
+    ROS_DEBUG_STREAM("Joint 0: " << j1 << " " << j2);
+
+    joint_state_ = robot_->getJointState(j1);
+    joint_state_2 = robot_->getJointState(j2);
+  }
+
   void SrController::after_init()
   {
     sub_command_ = node_.subscribe<std_msgs::Float64>("command", 1, &SrController::setCommandCB, this);
     sub_max_force_factor_ = node_.subscribe<std_msgs::Float64>("max_force_factor", 1, &SrController::maxForceFactorCB, this);
   }
 
-
   std::string SrController::getJointName()
   {
     return joint_state_->joint_->name;
   }
 
-// Set the joint position command
-  void SrController::setCommand(double cmd)
-  {
-    command_ = cmd;
-  }
-
-// Return the current position command
-  void SrController::getCommand(double & cmd)
-  {
-    cmd = command_;
-  }
-
-  void SrController::setCommandCB(const std_msgs::Float64ConstPtr& msg)
-  {
-    command_ = msg->data;
-  }
-
-  bool SrController::init(ros_ethercat_model::RobotState *robot, ros::NodeHandle &n)
-  {
-    return true;
-  }
-
-  void SrController::update(const ros::Time& time, const ros::Duration& period)
-  {
-  }
-
-  void SrController::starting(const ros::Time& time)
-  {}
-
-  bool SrController::resetGains(std_srvs::Empty::Request& req, std_srvs::Empty::Response& resp)
-  {
-    return true;
-  }
-
-  void SrController::getGains(double &p, double &i, double &d, double &i_max, double &i_min)
-  {}
-
   void SrController::get_min_max( urdf::Model model, std::string joint_name )
   {
-    if( joint_name.substr(3,1).compare("0") == 0)
+    if (joint_name_[joint_name.size() - 1]  ==  '0')
     {
-      std::string j1 = joint_name.substr(0,3) + "1";
-      std::string j2 = joint_name.substr(0,3) + "2";
+      joint_name[joint_name.size() - 1] = '1';
+      std::string j1 = joint_name;
+      joint_name[joint_name.size() - 1] = '2';
+      std::string j2 = joint_name;
 
       boost::shared_ptr<const urdf::Joint> joint1 = model.getJoint( j1 );
       boost::shared_ptr<const urdf::Joint> joint2 = model.getJoint( j2 );
@@ -150,5 +143,3 @@ Local Variables:
    c-basic-offset: 2
 End:
 */
-
-
