@@ -1,0 +1,12 @@
+Source: ros-indigo-shadow-robot
+Section: misc
+Priority: extra
+Maintainer: Shadow Robot's software team <software@shadowrobot.com>
+Build-Depends: debhelper (>= 9.0.0), ros-indigo-catkin
+Homepage: http://ros.org/wiki/shadow_robot
+Standards-Version: 3.9.2
+
+Package: ros-indigo-shadow-robot
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, ros-indigo-sr-description, ros-indigo-sr-example, ros-indigo-sr-gazebo-plugins, ros-indigo-sr-hand, ros-indigo-sr-hardware-interface, ros-indigo-sr-mechanism-controllers, ros-indigo-sr-mechanism-model, ros-indigo-sr-moveit-config, ros-indigo-sr-movements, ros-indigo-sr-robot-msgs, ros-indigo-sr-self-test, ros-indigo-sr-tactile-sensors, ros-indigo-sr-utilities
+Description: This stack regroups the different ros interfaces developped for Shadow Robot's Hardware. It provides an interface to both simulated and real hardware.
