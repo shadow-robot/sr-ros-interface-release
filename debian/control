@@ -1,0 +1,12 @@
+Source: ros-indigo-sr-utilities
+Section: misc
+Priority: extra
+Maintainer: Shadow Robot's software team <software@shadowrobot.com>
+Build-Depends: debhelper (>= 9.0.0), libgtest-dev, ros-indigo-catkin, ros-indigo-roscpp, ros-indigo-rospy, ros-indigo-sensor-msgs, ros-indigo-sr-robot-msgs, ros-indigo-tf
+Homepage: http://ros.org/wiki/sr_utilities
+Standards-Version: 3.9.2
+
+Package: ros-indigo-sr-utilities
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, ros-indigo-roscpp, ros-indigo-rospy, ros-indigo-sensor-msgs, ros-indigo-sr-robot-msgs, ros-indigo-tf
+Description: sr_utilities contains different useful header libraries (math libraries, etc...).
