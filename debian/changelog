@@ -1,0 +1,26 @@
+ros-indigo-sr-gazebo-plugins (1.4.0-0trusty) trusty; urgency=high
+
+  * Inertia now exact values, with inertia tensor at COM (gazebo and ode support the small values now)
+    Removed explicit viscous damping from sr_gazebo_plugin,
+    enabled springDamper in each joint (implicit viscous damping)
+    changed simulation parameters for stability
+    and retuned the controllers, explicitely define friction_deadband for simulated controllers (default is for real hand and is too high)
+  * Added shutdown-timeout=1.0 in controller spawner to improve shutdown time
+    Added a boolean to stop spinner in gazebo controller manager plugin to improve shutdown
+  * using prefix on joints didn't work with gazebo controllers. This is now working
+
+ -- Shadow Robot's software team <software@shadowrobot.com>  Mon, 06 Apr 2015 23:00:00 -0000
+
+ros-indigo-sr-gazebo-plugins (1.3.1-0trusty) trusty; urgency=high
+
+
+
+ -- Shadow Robot's software team <software@shadowrobot.com>  Thu, 17 Jul 2014 23:00:00 -0000
+
+ros-indigo-sr-gazebo-plugins (1.3.0-0trusty) trusty; urgency=high
+
+  * first hydro release
+
+ -- Shadow Robot's software team <software@shadowrobot.com>  Tue, 11 Feb 2014 00:00:00 -0000
+
+
