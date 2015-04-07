@@ -1,0 +1,12 @@
+Source: ros-indigo-sr-example
+Section: misc
+Priority: extra
+Maintainer: Shadow Robot's software team <software@shadowrobot.com>
+Build-Depends: debhelper (>= 9.0.0), ros-indigo-catkin, ros-indigo-control-msgs, ros-indigo-roscpp, ros-indigo-rospy, ros-indigo-sensor-msgs, ros-indigo-sr-robot-msgs, ros-indigo-std-msgs
+Homepage: http://ros.org/wiki/sr_example
+Standards-Version: 3.9.2
+
+Package: ros-indigo-sr-example
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, ros-indigo-control-msgs, ros-indigo-roscpp, ros-indigo-rospy, ros-indigo-sensor-msgs, ros-indigo-sr-robot-msgs, ros-indigo-std-msgs
+Description: sr_example is an example of a real package interfaced with our robot. Please refer to the tutorial Creating a package to interact with our robots.
