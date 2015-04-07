@@ -45,40 +45,46 @@ SrhJointVelocityController::SrhJointVelocityController()
 {
 }
 
-bool SrhJointVelocityController::init(ros_ethercat_model::RobotState *robot, const string &joint_name,
-                                      boost::shared_ptr<control_toolbox::Pid> pid_velocity)
+bool SrhJointVelocityController::init(ros_ethercat_model::RobotState *robot, ros::NodeHandle &n)
 {
-  ROS_DEBUG(" --------- ");
-  ROS_DEBUG_STREAM("Init: " << joint_name);
-
   ROS_ASSERT(robot);
   robot_ = robot;
+  node_ = n;
 
-  if (joint_name[3] == '0')
+  if (!node_.getParam("joint", joint_name_))
   {
-    has_j2 = true;
-    string j1 = joint_name.substr(0, 3) + "1";
-    string j2 = joint_name.substr(0, 3) + "2";
-    ROS_DEBUG_STREAM("Joint 0: " << j1 << " " << j2);
+    ROS_ERROR("No joint given (namespace: %s)", node_.getNamespace().c_str());
+    return false;
+  }
 
-    joint_state_ = robot_->getJointState(j1);
+  pid_controller_velocity_.reset(new control_toolbox::Pid());
+  if (!pid_controller_velocity_->init(ros::NodeHandle(node_, "pid")))
+    return false;
+
+  controller_state_publisher_.reset(new realtime_tools::RealtimePublisher<control_msgs::JointControllerState>
+                                    (node_, "state", 1));
+
+  ROS_DEBUG(" --------- ");
+  ROS_DEBUG_STREAM("Init: " << joint_name_);
+
+  // joint 0s e.g. FFJ0
+  has_j2 = is_joint_0();
+  if (has_j2)
+  {
+    get_joints_states_1_2();
     if (!joint_state_)
     {
-      ROS_ERROR("SrhVelocityController could not find joint named \"%s\"\n",
-                j1.c_str());
+      ROS_ERROR("SrhVelocityController could not find the first joint relevant to \"%s\"\n", joint_name_.c_str());
       return false;
     }
-
-    joint_state_2 = robot_->getJointState(j2);
     if (!joint_state_2)
     {
-      ROS_ERROR("SrhVelocityController could not find joint named \"%s\"\n",
-                j2.c_str());
+      ROS_ERROR("SrhVelocityController could not find the second joint relevant to \"%s\"\n", joint_name_.c_str());
       return false;
     }
     if (!joint_state_2->calibrated_)
     {
-      ROS_ERROR("Joint %s not calibrated for SrhVelocityJointController", j2.c_str());
+      ROS_ERROR("Joint %s not calibrated for SrhVelocityController", joint_name_.c_str());
       return false;
     }
     else
@@ -86,24 +92,20 @@ bool SrhJointVelocityController::init(ros_ethercat_model::RobotState *robot, con
   }
   else
   {
-    has_j2 = false;
-    joint_state_ = robot_->getJointState(joint_name);
+    joint_state_ = robot_->getJointState(joint_name_);
     if (!joint_state_)
     {
-      ROS_ERROR("SrhVelocityController could not find joint named \"%s\"\n",
-                joint_name.c_str());
+      ROS_ERROR("SrhVelocityController could not find joint named \"%s\"\n", joint_name_.c_str());
       return false;
     }
     if (!joint_state_->calibrated_)
     {
-      ROS_ERROR("Joint %s not calibrated for SrhJointVelocityController", joint_name.c_str());
+      ROS_ERROR("Joint %s not calibrated for SrhJointVelocityController", joint_name_.c_str());
       return false;
     }
   }
 
-  friction_compensator = boost::shared_ptr<sr_friction_compensation::SrFrictionCompensator>(new sr_friction_compensation::SrFrictionCompensator(joint_name));
-
-  pid_controller_velocity_ = pid_velocity;
+  friction_compensator.reset(new sr_friction_compensation::SrFrictionCompensator(joint_name_));
 
   serve_set_gains_ = node_.advertiseService("set_gains", &SrhJointVelocityController::setGains, this);
   serve_reset_gains_ = node_.advertiseService("reset_gains", &SrhJointVelocityController::resetGains, this);
@@ -112,36 +114,9 @@ bool SrhJointVelocityController::init(ros_ethercat_model::RobotState *robot, con
   return true;
 }
 
-bool SrhJointVelocityController::init(ros_ethercat_model::RobotState *robot, ros::NodeHandle &n)
-{
-  ROS_ASSERT(robot);
-  node_ = n;
-
-  string joint_name;
-  if (!node_.getParam("joint", joint_name))
-  {
-    ROS_ERROR("No joint given (namespace: %s)", node_.getNamespace().c_str());
-    return false;
-  }
-
-  boost::shared_ptr<control_toolbox::Pid> pid_velocity = boost::shared_ptr<control_toolbox::Pid>(new control_toolbox::Pid());
-  ;
-  if (!pid_velocity->init(ros::NodeHandle(node_, "pid")))
-    return false;
-
-
-  controller_state_publisher_.reset(new realtime_tools::RealtimePublisher<control_msgs::JointControllerState>
-                                    (node_, "state", 1));
-
-  return init(robot, joint_name, pid_velocity);
-}
-
 void SrhJointVelocityController::starting(const ros::Time& time)
 {
-  if (has_j2)
-    command_ = (joint_state_->velocity_ + joint_state_2->velocity_) / 2.0;
-  else
-    command_ = joint_state_->velocity_;
+  resetJointState();
   pid_controller_velocity_->reset();
   read_parameters();
 
@@ -174,10 +149,7 @@ bool SrhJointVelocityController::setGains(sr_robot_msgs::SetPidGains::Request &r
 
 bool SrhJointVelocityController::resetGains(std_srvs::Empty::Request& req, std_srvs::Empty::Response& resp)
 {
-  if (has_j2)
-    command_ = (joint_state_->velocity_ + joint_state_2->velocity_) / 2.0;
-  else
-    command_ = joint_state_->velocity_;
+  resetJointState();
 
   if (!pid_controller_velocity_->init(ros::NodeHandle(node_, "velocity_pid")))
     return false;
@@ -199,28 +171,27 @@ void SrhJointVelocityController::getGains(double &p, double &i, double &d, doubl
 
 void SrhJointVelocityController::update(const ros::Time& time, const ros::Duration& period)
 {
-  if (!has_j2)
-  {
-    if (!joint_state_->calibrated_)
-      return;
-  }
+  if (!has_j2 && !joint_state_->calibrated_)
+    return;
 
-  ROS_ASSERT(robot_ != NULL);
+  ROS_ASSERT(robot_);
   ROS_ASSERT(joint_state_->joint_);
 
   if (!initialized_)
   {
+    resetJointState();
     initialized_ = true;
-    if (has_j2)
-      command_ = (joint_state_->velocity_ + joint_state_2->velocity_) / 2.0;
-    else
-      command_ = joint_state_->velocity_;
   }
+  if (has_j2)
+    command_ = joint_state_->commanded_velocity_ + joint_state_2->commanded_velocity_;
+  else
+    command_ = joint_state_->commanded_velocity_;
+  command_ = clamp_command(command_);
 
   //Compute velocity demand from position error:
   double error_velocity = 0.0;
   if (has_j2)
-    error_velocity = (joint_state_->velocity_ + joint_state_2->velocity_) / 2.0 - command_;
+    error_velocity = (joint_state_->velocity_ + joint_state_2->velocity_) - command_;
   else
     error_velocity = joint_state_->velocity_ - command_;
 
@@ -256,7 +227,7 @@ void SrhJointVelocityController::update(const ros::Time& time, const ros::Durati
       controller_state_publisher_->msg_.header.stamp = time;
       controller_state_publisher_->msg_.set_point = command_;
       if (has_j2)
-        controller_state_publisher_->msg_.process_value = (joint_state_->velocity_ + joint_state_2->velocity_) / 2.0;
+        controller_state_publisher_->msg_.process_value = joint_state_->velocity_ + joint_state_2->velocity_;
       else
         controller_state_publisher_->msg_.process_value = joint_state_->velocity_;
       controller_state_publisher_->msg_.error = error_velocity;
@@ -280,6 +251,28 @@ void SrhJointVelocityController::read_parameters()
   node_.param<double>("pid/max_force", max_force_demand, 1023.0);
   node_.param<double>("pid/velocity_deadband", velocity_deadband, 0.015);
   node_.param<int>("pid/friction_deadband", friction_deadband, 5);
+}
+
+void SrhJointVelocityController::setCommandCB(const std_msgs::Float64ConstPtr& msg)
+{
+  joint_state_->commanded_velocity_ = msg->data;
+  if (has_j2)
+    joint_state_2->commanded_velocity_ = 0.0;
+}
+
+void SrhJointVelocityController::resetJointState()
+{
+    if (has_j2)
+    {
+      joint_state_->commanded_velocity_ = joint_state_->velocity_;
+      joint_state_2->commanded_velocity_ = joint_state_2->velocity_;
+      command_ = joint_state_->velocity_ + joint_state_2->velocity_;
+    }
+    else
+    {
+      joint_state_->commanded_velocity_ = joint_state_->velocity_;
+      command_ = joint_state_->velocity_;
+    }
 }
 }
 
